@@ -6,7 +6,7 @@
 import type { RunMeta } from "../shared/types.ts";
 
 /** ACTS transport ids, as they appear as keys of `ActsRun.results`. */
-export type Transport = "jsonrpc" | "grpc" | "rest";
+export type Transport = "jsonrpc" | "grpc" | "rest" | "slimrpc";
 
 /** Requirement level from the specification: a MUST failure breaks conformance. */
 export type Level = "must" | "should" | "may";
