@@ -197,9 +197,22 @@ class TestWhatEachBindingIsScoredOn:
     """
 
     def test_a_binding_is_scored_only_on_the_tests_that_target_it(self, corpus):
-        assert [
-            len(_in_scope(corpus, binding).tests) for binding in TransportBinding
-        ] == [101, 88, 92]
+        assert {
+            binding: len(_in_scope(corpus, binding).tests)
+            for binding in TransportBinding
+        } == {
+            TransportBinding.JSONRPC: 101,
+            TransportBinding.GRPC: 88,
+            TransportBinding.REST: 92,
+            TransportBinding.SLIMRPC: 85,
+        }
+
+    def test_a_binding_no_test_names_is_scored_on_the_unrestricted_tests(self, corpus):
+        """No corpus test restricts itself to slimrpc, so its report is
+        exactly the tests that are not restricted to anything."""
+        unrestricted = {entry.id for entry in corpus if not entry.test.transport}
+        scoped = {entry.id for entry in _in_scope(corpus, TransportBinding.SLIMRPC)}
+        assert scoped == unrestricted
 
     def test_an_out_of_scope_test_is_absent_rather_than_skipped(self, corpus):
         ids = {entry.id for entry in _in_scope(corpus, TransportBinding.JSONRPC)}

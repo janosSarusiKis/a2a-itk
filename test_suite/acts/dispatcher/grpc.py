@@ -405,7 +405,15 @@ def _reason_from_trailers(exc: AioRpcError) -> tuple[str | None, tuple[Any, ...]
             break
     if blob is None:
         return None, ()
+    return reason_from_status(blob)
 
+
+def reason_from_status(blob: bytes) -> tuple[str | None, tuple[Any, ...]]:
+    """Read ``ErrorInfo.reason`` and the details from a serialized ``Status``.
+
+    Shared by every binding that carries the gRPC service, whatever its
+    transport puts the ``google.rpc.Status`` in.
+    """
     try:
         status = status_pb2.Status()
         status.ParseFromString(blob)

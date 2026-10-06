@@ -17,6 +17,14 @@ dependencies = [
     "pyyaml>=6.0.3",
 ]
 
+[project.optional-dependencies]
+# The slimrpc conformance binding: the A2A gRPC service carried over SLIM.
+# Optional, so a run that never uses it never installs a native SLIM runtime.
+#   uv run --extra slimrpc run_acts.py --transport slimrpc ...
+slimrpc = [
+    "slim-bindings~=2.0",
+]
+
 [tool.hatch.metadata]
 allow-direct-references = true
 

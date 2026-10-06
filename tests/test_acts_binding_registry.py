@@ -53,7 +53,11 @@ class TestCardSpellings:
 
     @pytest.mark.parametrize('binding', list(TransportBinding))
     def test_every_binding_has_a_dispatcher_that_speaks_it(self, binding):
-        assert dispatcher_class(binding).binding is binding
+        try:
+            dispatcher = dispatcher_class(binding)
+        except ModuleNotFoundError as exc:
+            pytest.skip(f'{binding.value} needs an optional extra: {exc}')
+        assert dispatcher.binding is binding
 
 
 class TestFromInterface:
