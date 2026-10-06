@@ -41,12 +41,14 @@ _IMPLEMENTATIONS: Final[dict[str, str]] = {
     'RestDispatcher': 'rest',
     'GrpcDispatcher': 'grpc',
     'HttpDispatcher': 'http_base',
+    'SlimRpcDispatcher': 'slimrpc',
 }
 
 _FOR_BINDING: Final[dict[TransportBinding, str]] = {
     TransportBinding.JSONRPC: 'JsonRpcDispatcher',
     TransportBinding.REST: 'RestDispatcher',
     TransportBinding.GRPC: 'GrpcDispatcher',
+    TransportBinding.SLIMRPC: 'SlimRpcDispatcher',
 }
 
 #: How agent cards spell each binding in `supportedInterfaces[].protocolBinding`,
@@ -59,6 +61,7 @@ _CARD_SPELLINGS: Final[dict[TransportBinding, tuple[str, ...]]] = {
     TransportBinding.JSONRPC: ('JSONRPC',),
     TransportBinding.GRPC: ('GRPC',),
     TransportBinding.REST: ('HTTP+JSON', 'HTTP_JSON', 'REST'),
+    TransportBinding.SLIMRPC: ('SLIMRPC',),
 }
 
 
@@ -111,6 +114,7 @@ __all__ = [
     'HttpDispatcher',
     'JsonRpcDispatcher',
     'RestDispatcher',
+    'SlimRpcDispatcher',
     'StreamEvent',
     'UnsupportedByBinding',
     'WireError',

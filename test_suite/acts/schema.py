@@ -64,6 +64,11 @@ class TransportBinding(str, enum.Enum):
     JSONRPC = 'jsonrpc'
     GRPC = 'grpc'
     REST = 'rest'
+    #: The gRPC binding's protobuf service carried over SLIM's RPC layer
+    #: (slimrpc) instead of HTTP/2. Not one of the spec's three core
+    #: bindings; `protocolBinding` is open-ended (a2a.proto, AgentInterface),
+    #: and no corpus test restricts itself to it.
+    SLIMRPC = 'slimrpc'
 
 
 class Operation(str, enum.Enum):
