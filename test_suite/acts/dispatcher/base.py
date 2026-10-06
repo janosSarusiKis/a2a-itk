@@ -22,6 +22,7 @@ duplicate them.
 from __future__ import annotations
 
 import abc
+import contextlib
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Mapping
 
@@ -162,6 +163,11 @@ class StreamEvent:
     status: int | None = None
 
 
+@contextlib.asynccontextmanager
+async def _nothing_needed() -> AsyncIterator[dict[str, str]]:
+    yield {}
+
+
 class Dispatcher(abc.ABC):
     """Binds abstract operations to one wire protocol.
 
@@ -173,6 +179,36 @@ class Dispatcher(abc.ABC):
     #: Which binding this dispatcher speaks. Used to select it for a test's
     #: ``transport`` restriction.
     binding: TransportBinding
+
+    @classmethod
+    def from_interface(
+        cls,
+        url: str,
+        *,
+        agent_card_url: str,
+        default_headers: Mapping[str, str] | None = None,
+    ) -> Dispatcher:
+        """Build a dispatcher for the interface an agent card advertises.
+
+        ``url`` is the interface's ``url`` exactly as the card gives it, and
+        ``agent_card_url`` the agent's HTTP root, where the card lives. A
+        binding whose cards spell the address differently from what its
+        constructor takes overrides this to translate.
+        """
+        return cls(
+            url, agent_card_url=agent_card_url, default_headers=default_headers
+        )
+
+    @classmethod
+    def sut_environment(cls) -> contextlib.AbstractAsyncContextManager[dict[str, str]]:
+        """Infrastructure the SUT needs to serve this binding, for one run.
+
+        Entered before the SUT starts and left after the run, including its
+        deviation passes. Yields environment variables for the SUT, which
+        inherits the runner's environment. Most bindings need nothing; one
+        carried over a broker starts the broker here.
+        """
+        return _nothing_needed()
 
     @abc.abstractmethod
     async def dispatch(

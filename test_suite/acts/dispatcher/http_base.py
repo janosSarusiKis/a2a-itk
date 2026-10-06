@@ -151,6 +151,28 @@ class HttpDispatcher(Dispatcher):
             follow_redirects=FOLLOW_REDIRECTS,
         )
 
+    @classmethod
+    def from_interface(
+        cls,
+        url: str,
+        *,
+        agent_card_url: str,
+        default_headers: Mapping[str, str] | None = None,
+    ) -> HttpDispatcher:
+        # The *mount point* is the base, not the host root. A raw step writes
+        # an absolute path — `POST /` for JSON-RPC, `GET /tasks/x` for REST —
+        # and means it relative to where the binding lives. An agent mounting
+        # JSON-RPC at `/jsonrpc/` would otherwise get every raw step 404'd at
+        # the host root, which reads as a conformance failure and is nothing
+        # of the kind.
+        #
+        # Passed exactly as advertised: the SDKs disagree about the trailing
+        # slash and each serves only its own spelling, so `_url` keeps it and
+        # trims only when joining a deeper path onto it.
+        return cls(
+            url, agent_card_url=agent_card_url, default_headers=default_headers
+        )
+
     async def aclose(self) -> None:
         if self._owns_client:
             await self._client.aclose()

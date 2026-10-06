@@ -25,9 +25,13 @@ import os
 import sys
 from pathlib import Path
 
+# Safe before `$ITK_MOUNT_DIR` is set: the schema imports nothing from the
+# launcher, which is what caches the mount.
+from test_suite.acts.schema import TransportBinding
+
 
 #: Every binding, in the order a run reports them.
-ALL_BINDINGS = ('jsonrpc', 'grpc', 'rest')
+ALL_BINDINGS = tuple(b.value for b in TransportBinding)
 
 
 def _bindings(requested: list[str] | None) -> list[str]:
@@ -152,7 +156,7 @@ def main() -> int:
     parser.add_argument('--repository', default=None)
     parser.add_argument(
         '--transport', action='append', dest='transports', metavar='BINDING',
-        choices=['jsonrpc', 'grpc', 'rest', 'all'],
+        choices=[*ALL_BINDINGS, 'all'],
         help='Binding to run against. Repeatable, or `all` for every one. '
              'Each gets its own fresh SUT, as the nightly does. '
              'Default: jsonrpc.',
@@ -195,7 +199,6 @@ def main() -> int:
 
     import acts_runner
     from test_suite.acts import report as report_writer
-    from test_suite.acts.schema import TransportBinding
 
     if not args.no_codegen:
         _generate_protos(mount)

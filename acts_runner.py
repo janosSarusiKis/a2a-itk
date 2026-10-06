@@ -25,7 +25,7 @@ import logging
 import os
 import re
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -34,7 +34,11 @@ import httpx
 
 from test_suite.acts import behaviors as sut_behaviors
 from test_suite.acts import report as report_writer
-from test_suite.acts.dispatcher import Dispatcher, for_binding
+from test_suite.acts.dispatcher import (
+    Dispatcher,
+    binding_for_card,
+    dispatcher_class,
+)
 from test_suite.acts.dispatcher.http_base import FOLLOW_REDIRECTS
 from test_suite.acts.loader import LoadedSuite, LoadedTest, load_suite
 from test_suite.acts.runner import VERSION_HEADER, Runner, TestResult
@@ -161,19 +165,6 @@ RUNNER_CAPABILITIES: tuple[RunnerRequirement, ...] = (
     RunnerRequirement.STREAM_DISCONNECT,
 )
 
-#: Protocol bindings as the agent card spells them, mapped to ACTS's names.
-#: The card says `JSONRPC` / `GRPC` / `HTTP_JSON`; ACTS says `rest` for the
-#: last one. The two vocabularies are separate on purpose, so the translation
-#: lives here rather than either enum growing the other's spelling.
-_CARD_BINDING = {
-    'JSONRPC': TransportBinding.JSONRPC,
-    'GRPC': TransportBinding.GRPC,
-    'HTTP_JSON': TransportBinding.REST,
-    'HTTP+JSON': TransportBinding.REST,
-    'REST': TransportBinding.REST,
-}
-
-
 class ActsRunError(RuntimeError):
     """The conformance run could not be set up or completed."""
 
@@ -273,7 +264,7 @@ def interface_for(
     """
     candidates = [
         i for i in (card.get('supportedInterfaces') or [])
-        if _CARD_BINDING.get(str(i.get('protocolBinding', '')).upper()) is binding
+        if binding_for_card(str(i.get('protocolBinding', ''))) is binding
     ]
     if not candidates:
         advertised = sorted({
@@ -300,42 +291,16 @@ def build_dispatcher(
     """Construct the dispatcher for ``binding`` against a running agent.
 
     ``base_url`` is the agent's HTTP root — where the card lives — which is
-    not necessarily where the binding is mounted.
+    not necessarily where the binding is mounted. How the card's interface
+    URL becomes a connection is the binding's own business; see
+    :meth:`Dispatcher.from_interface`.
     """
     url, _ = interface_for(card, binding)
     # Presented on abstract operations only; `dispatch_raw` drops it, which is
     # what keeps the unauthenticated `SEC-EXTCARD-*` probes honest.
     auth = {'Authorization': f'Bearer {ACTS_AUTH_TOKEN}'}
-
-    if binding is TransportBinding.GRPC:
-        # The card gives `host:port` for gRPC, sometimes with a scheme.
-        target = url.removeprefix('http://').removeprefix('https://').rstrip('/')
-        return for_binding(
-            binding, target, agent_card_url=base_url, default_headers=auth
-        )
-
-    # For both HTTP bindings the *mount point* is the base, not the host root.
-    # A raw step writes an absolute path — `POST /` for JSON-RPC,
-    # `GET /tasks/x` for REST — and means it relative to where the binding
-    # lives. An agent mounting JSON-RPC at `/jsonrpc/` would otherwise get
-    # every raw step 404'd at the host root, which reads as a conformance
-    # failure and is nothing of the kind.
-    #
-    # Passed exactly as advertised: the SDKs disagree about the trailing slash
-    # and each serves only its own spelling, so `HttpDispatcher._url` keeps it
-    # and trims only when joining a deeper path onto it.
-    if binding is TransportBinding.JSONRPC:
-        # With the mount as the base, the endpoint itself is just `/`.
-        return for_binding(
-            binding,
-            url,
-            rpc_path='/',
-            agent_card_url=base_url,
-            default_headers=auth,
-        )
-
-    return for_binding(
-        binding, url, agent_card_url=base_url, default_headers=auth
+    return dispatcher_class(binding).from_interface(
+        url, agent_card_url=base_url, default_headers=auth
     )
 
 
@@ -400,27 +365,28 @@ async def run(
             )
 
     started = time.monotonic()
-    results, card = await _run_pass(
-        suite,
-        transport=transport,
-        variables=variables,
-        capabilities=capabilities,
-        declared=declared,
-        log_dir=log_dir,
-        log_name='acts_sut',
-    )
-
-    for deviation in DEVIATIONS:
-        results = await _rerun_deviation(
-            results,
+    async with _binding_environment(transport):
+        results, card = await _run_pass(
             suite,
-            deviation=deviation,
             transport=transport,
             variables=variables,
             capabilities=capabilities,
             declared=declared,
             log_dir=log_dir,
+            log_name='acts_sut',
         )
+
+        for deviation in DEVIATIONS:
+            results = await _rerun_deviation(
+                results,
+                suite,
+                deviation=deviation,
+                transport=transport,
+                variables=variables,
+                capabilities=capabilities,
+                declared=declared,
+                log_dir=log_dir,
+            )
 
     return ActsRun(
         results=results,
@@ -532,6 +498,34 @@ async def _webhook_receiver() -> Any:
         with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(process.wait(), timeout=10)
         release(port)
+
+
+@contextlib.asynccontextmanager
+async def _binding_environment(binding: TransportBinding) -> AsyncIterator[None]:
+    """Hold up whatever ``binding`` needs for the SUT, for the whole run.
+
+    Spans the deviation passes as well as the main one, so infrastructure a
+    binding starts (a broker, say) is started once per run rather than once
+    per SUT. What it yields is exported to the environment the SUTs inherit.
+    """
+    async with dispatcher_class(binding).sut_environment() as env:
+        with _exported(env):
+            yield
+
+
+@contextlib.contextmanager
+def _exported(env: dict[str, str]) -> Iterator[None]:
+    """Set ``env`` in this process's environment, restoring it afterwards."""
+    previous = {name: os.environ.get(name) for name in env}
+    os.environ.update(env)
+    try:
+        yield
+    finally:
+        for name, value in previous.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
 
 @contextlib.contextmanager
