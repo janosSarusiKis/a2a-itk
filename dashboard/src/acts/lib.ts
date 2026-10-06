@@ -14,13 +14,17 @@ import type {
   TransportResult,
 } from "./types.ts";
 
-/** Column order of the conformance table, matching the specification's §3. */
-export const TRANSPORTS: Transport[] = ["jsonrpc", "grpc", "rest"];
+/**
+ * Column order of the conformance table: the specification's three core
+ * bindings (§3) first, then slimrpc, which no SDK but a SLIM one publishes.
+ */
+export const TRANSPORTS: Transport[] = ["jsonrpc", "grpc", "rest", "slimrpc"];
 
 export const TRANSPORT_LABELS: Record<Transport, string> = {
   jsonrpc: "JSON-RPC",
   grpc: "gRPC",
   rest: "HTTP+JSON",
+  slimrpc: "slimrpc",
 };
 
 export const LEVELS: Level[] = ["must", "should", "may"];

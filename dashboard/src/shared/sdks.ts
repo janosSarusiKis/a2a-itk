@@ -42,6 +42,13 @@ export const SDKS: SdkTarget[] = [
     repo: "a2a-java",
     files: { itk: "itk_java.json", acts: "acts_java.json" },
   },
+  {
+    id: "slim-python",
+    label: "SLIM Python",
+    owner: "agntcy",
+    repo: "slim-a2a-python",
+    files: { itk: "itk_slim_python.json", acts: "acts_slim_python.json" },
+  },
 ];
 
 export const findSdk = (id: string | undefined): SdkTarget | undefined =>
@@ -51,7 +58,7 @@ export const metricsFile = (sdk: SdkTarget, domain: Domain): string =>
   sdk.files[domain];
 
 export const commitUrl = (sdk: SdkTarget, sha: string): string =>
-  `https://github.com/a2aproject/${sdk.repo}/commit/${sha}`;
+  `https://github.com/${sdk.owner ?? "a2aproject"}/${sdk.repo}/commit/${sha}`;
 
 /** Newest run first. Does not mutate the input. */
 export const sortRuns = <T extends { timestamp: string }>(runs: T[]): T[] =>

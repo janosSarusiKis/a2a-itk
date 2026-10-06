@@ -17,8 +17,10 @@ export interface RunMeta {
 export interface SdkTarget {
   id: string;
   label: string;
-  /** GitHub repo under a2aproject, for commit links. */
+  /** GitHub repo, for commit links. */
   repo: string;
+  /** GitHub owner of `repo`. Defaults to a2aproject. */
+  owner?: string;
   /** Metrics files served next to index.html, one per domain. */
   files: Record<Domain, string>;
 }
