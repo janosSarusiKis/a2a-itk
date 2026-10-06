@@ -49,6 +49,18 @@ _FOR_BINDING: Final[dict[TransportBinding, str]] = {
     TransportBinding.GRPC: 'GrpcDispatcher',
 }
 
+#: How agent cards spell each binding in `supportedInterfaces[].protocolBinding`,
+#: upper-cased. The card says `HTTP+JSON` where ACTS says `rest`, and SDKs have
+#: shipped the older `HTTP_JSON` and plain `REST` too. Kept here, beside the
+#: dispatcher registry, so a new binding is declared in one place and needs no
+#: edit to the runner. Data rather than a class attribute, so resolving a card
+#: does not import a dispatcher the run may never use.
+_CARD_SPELLINGS: Final[dict[TransportBinding, tuple[str, ...]]] = {
+    TransportBinding.JSONRPC: ('JSONRPC',),
+    TransportBinding.GRPC: ('GRPC',),
+    TransportBinding.REST: ('HTTP+JSON', 'HTTP_JSON', 'REST'),
+}
+
 
 def _load(name: str) -> type[Dispatcher]:
     module = importlib.import_module(f'{__name__}.{_IMPLEMENTATIONS[name]}')
@@ -64,6 +76,20 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
 
 
+def dispatcher_class(binding: TransportBinding) -> type[Dispatcher]:
+    """The dispatcher class that speaks ``binding``."""
+    return _load(_FOR_BINDING[binding])
+
+
+def binding_for_card(protocol_binding: str) -> TransportBinding | None:
+    """The ACTS binding an agent card's ``protocolBinding`` names, if any."""
+    spelling = protocol_binding.upper()
+    return next(
+        (b for b, names in _CARD_SPELLINGS.items() if spelling in names),
+        None,
+    )
+
+
 def for_binding(
     binding: TransportBinding,
     target: str,
@@ -74,7 +100,7 @@ def for_binding(
     ``target`` is a base URL for the HTTP bindings and a ``host:port`` for
     gRPC. Remaining keyword arguments go to the concrete dispatcher.
     """
-    return _load(_FOR_BINDING[binding])(target, **kwargs)
+    return dispatcher_class(binding)(target, **kwargs)
 
 
 __all__ = [
@@ -90,5 +116,7 @@ __all__ = [
     'WireError',
     'WireResponse',
     'adapt',
+    'binding_for_card',
+    'dispatcher_class',
     'for_binding',
 ]

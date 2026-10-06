@@ -184,6 +184,20 @@ class GrpcDispatcher(Dispatcher):
             timeout=timeout, follow_redirects=FOLLOW_REDIRECTS
         )
 
+    @classmethod
+    def from_interface(
+        cls,
+        url: str,
+        *,
+        agent_card_url: str,
+        default_headers: Mapping[str, str] | None = None,
+    ) -> GrpcDispatcher:
+        # The card gives `host:port` for gRPC, sometimes with a scheme.
+        target = url.removeprefix('http://').removeprefix('https://').rstrip('/')
+        return cls(
+            target, agent_card_url=agent_card_url, default_headers=default_headers
+        )
+
     async def aclose(self) -> None:
         if self._owns_channel:
             await self._channel.close()
